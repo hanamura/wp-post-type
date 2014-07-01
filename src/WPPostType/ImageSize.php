@@ -4,23 +4,30 @@ namespace WPPostType;
 
 class ImageSize
 {
-	// props
-	public $name = null;
-	protected $_options = null;
+  public $name = null;
+  public $width = 1000;
+  public $height = 1000;
+  public $crop = false;
 
+  function __construct($name, $options = null)
+  {
+    $this->name = $name;
 
+    $options = array_merge(array(
+      'width' => 1000,
+      'height' => 1000,
+      'crop' => false,
+    ), $options);
 
-	// init
-	function __construct($name, $options = null)
-	{
-		$this->name = $name;
-		$this->_options = $options;
+    $this->width = $options['width'];
+    $this->height = $options['height'];
+    $this->crop = $options['crop'];
 
-		add_image_size(
-			$this->name,
-			isset($this->_options['width']) ? $this->_options['width'] : 1000,
-			isset($this->_options['height']) ? $this->_options['height'] : 1000,
-			isset($this->_options['crop']) ? $this->_options['crop'] : false
-		);
-	}
+    add_image_size(
+      $this->name,
+      $this->width,
+      $this->height,
+      $this->crop
+    );
+  }
 }
