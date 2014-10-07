@@ -18,25 +18,35 @@ class PostType
 
     // register
     add_action('init', array($this, 'onInit'));
+
     // head
     add_action('admin_head', array($this, 'onAdminHead'));
+
     // edit - remove meta boxes
     add_action('admin_menu', array($this, 'onAdminMenu'));
+
     // edit
     add_action("add_meta_boxes_{$this->name}", array($this, 'onAddMetaBoxes'));
+
     // save
     add_action('save_post', array($this, 'onSavePost'), 10, 2);
     add_filter('wp_insert_post_data', array($this, 'onInsertPostData'), 99, 2);
+
     // remove
     add_action('trashed_post', array($this, 'onTrashedPost'));
     add_action('deleted_post', array($this, 'onDeletedPost'));
+
     // attachment
     add_action('add_attachment', array($this, 'onAddAttachment'));
     add_action('edit_attachment', array($this, 'onEditAttachment'));
     add_action('delete_attachment', array($this, 'onDeleteAttachment'));
+
     // list
     add_filter("manage_{$name}_posts_columns", array($this, 'onManagePostsColumns'));
     add_action("manage_{$name}_posts_custom_column", array($this, 'onManagePostsCustomColumn'), 10, 2);
+
+    // map meta cap
+    add_filter('map_meta_cap', array($this, 'onMapMetaCap'), 10, 4);
   }
 
 
@@ -245,5 +255,91 @@ class PostType
   public function onManagePostsCustomColumn($column, $post_id)
   {
     // override
+  }
+
+
+
+  // map meta cap
+  public function onMapMetaCap($caps, $cap, $user_id, $args)
+  {
+    // post type object
+    // ----------------
+
+    $post_type_object = get_post_type_object($this->name);
+
+    if (is_null($post_type_object)) {
+      return $caps;
+    }
+
+    if (
+      $post_type_object->capability_type === 'post' ||
+      $post_type_object->capability_type === 'page'
+    ) {
+      return $caps;
+    }
+
+    // meta caps
+    // ---------
+
+    $edit_post = $post_type_object->cap->edit_post;
+    $delete_post = $post_type_object->cap->delete_post;
+    $read_post = $post_type_object->cap->read_post;
+
+    // receiving meta caps?
+    // --------------------
+
+    if (
+      $cap === $edit_post ||
+      $cap === $delete_post ||
+      $cap === $read_post
+    ) {
+      $post = get_post($args[0]);
+
+      // map meta caps
+      // -------------
+
+      switch ($cap) {
+      case $edit_post:
+        return $this->onCheckedMapMetaCapEditPost($user_id, $post, $post_type_object);
+      case $delete_post:
+        return $this->onCheckedMapMetaCapDeletePost($user_id, $post, $post_type_object);
+      case $read_post:
+        return $this->onCheckedMapMetaCapReadPost($user_id, $post, $post_type_object);
+      }
+    }
+
+    // default
+    // -------
+
+    return $caps;
+  }
+
+  public function onCheckedMapMetaCapEditPost($user_id, $post, $post_type_object)
+  {
+    if (intval($post->post_author) === $user_id) {
+      return array($post_type_object->cap->edit_posts);
+    } else {
+      return array($post_type_object->cap->edit_others_posts);
+    }
+  }
+
+  public function onCheckedMapMetaCapDeletePost($user_id, $post, $post_type_object)
+  {
+    if (intval($post->post_author) === $user_id) {
+      return array($post_type_object->cap->delete_posts);
+    } else {
+      return array($post_type_object->cap->delete_others_posts);
+    }
+  }
+
+  public function onCheckedMapMetaCapReadPost($user_id, $post, $post_type_object)
+  {
+    if (intval($post->post_author) === $user_id) {
+      return array($post_type_object->cap->read);
+    } else if ($post->post_status !== 'private') {
+      return array($post_type_object->cap->read);
+    } else {
+      return array($post_type_object->cap->read_private_posts);
+    }
   }
 }
